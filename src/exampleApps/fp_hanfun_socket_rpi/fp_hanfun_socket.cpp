@@ -108,10 +108,10 @@ void profileIndCallback(openD_hanfunApi_profileInd_t* hProfileInd)
       return;
    }
 
-   switch (hProfileInd->profile)
+   switch(hProfileInd->profile)
    {
       case OPEND_HANFUNAPI_SIMPLE_LIGHT:
-         switch (hProfileInd->simpleLight.service)
+         switch(hProfileInd->simpleLight.service)
          {
             case OPEND_HANFUN_IONOFF_SERVER_TOGGLE_ADDR:
                printf("Toggle indication from PP with address %u received.\n", hProfileInd->simpleLight.param.toggleAddr.addr.device);
@@ -129,53 +129,32 @@ void profileIndCallback(openD_hanfunApi_profileInd_t* hProfileInd)
 
 void profileConfirmCallback(openD_hanfunApi_profileCfm_t* hProfileConfirm)
 {
-   openD_status_t confirmAndIndStatusByte = hProfileConfirm->status;
-
-   if (confirmAndIndStatusByte != OPEND_STATUS_OK)
+   if(!hProfileConfirm || (hProfileConfirm->status != OPEND_STATUS_OK))
    {
       return;
    }
 
-   switch (hProfileConfirm->profile)
+   switch(hProfileConfirm->profile)
    {
       case OPEND_HANFUNAPI_SIMPLE_ONOFF_SWITCH:
-         switch (hProfileConfirm->simpleOnOffSwitch.service)
+         switch(hProfileConfirm->simpleOnOffSwitch.service)
          {
             case OPEND_HANFUN_IONOFF_CLIENT_TOGGLE:
                // CONFIRMATION IMPLEMENT HERE
                break;
-            default:
-               confirmAndIndStatusByte = OPEND_STATUS_SERVICE_UNKNOWN;
-               break;
          }
-         break;
-
-      case OPEND_HANFUNAPI_MOTION_DETECTOR:
-         switch (hProfileConfirm->motionDetector.service)
-         {
-            case OPEND_HANFUN_iDETECTOR_ALERT:
-               // CONFIRMATION IMPLEMENT HERE
-               break;
-            default:
-               confirmAndIndStatusByte = OPEND_STATUS_SERVICE_UNKNOWN;
-               break;
-         }
-         break;
-
-      default:
-         confirmAndIndStatusByte = OPEND_STATUS_ARGUMENT_INVALID;
          break;
    }
 }
 
 void bindMgmtConfirmCallback(openD_hanfunApi_bindMgmtCfm_t* hBindMgmtConfirm)
 {
-   if (hBindMgmtConfirm->status != OPEND_STATUS_OK)
+   if(!hBindMgmtConfirm || (hBindMgmtConfirm->status != OPEND_STATUS_OK))
    {
       return;
    }
 
-   switch (hBindMgmtConfirm->service)
+   switch(hBindMgmtConfirm->service)
    {
       case OPEND_HANFUNAPI_BIND_MANAGEMENT_ENTRIES:
          printf("HAN-FUN current Binds (%u)\n", hBindMgmtConfirm->param.entriesElement.entriesSize);
@@ -197,7 +176,7 @@ void bindMgmtConfirmCallback(openD_hanfunApi_bindMgmtCfm_t* hBindMgmtConfirm)
          break;
 
       case OPEND_HANFUNAPI_BIND_MANAGEMENT_ADD:
-         switch (hBindMgmtConfirm->param.entriesElement.error)
+         switch(hBindMgmtConfirm->param.entriesElement.error)
          {
             case 0:
                printf("Bind created\n");
@@ -228,7 +207,7 @@ void bindMgmtConfirmCallback(openD_hanfunApi_bindMgmtCfm_t* hBindMgmtConfirm)
             break;
 
       case OPEND_HANFUNAPI_BIND_MANAGEMENT_REMOVE:
-         if (hBindMgmtConfirm->param.entriesElement.error == 1)
+         if(hBindMgmtConfirm->param.entriesElement.error == 1)
          {
             printf("Bind: %u - %u removed !",
                    hBindMgmtConfirm->param.entriesElement.devicesToBind.address1,
@@ -242,6 +221,8 @@ void bindMgmtConfirmCallback(openD_hanfunApi_bindMgmtCfm_t* hBindMgmtConfirm)
    }
 }
 
+// Commands to control openD
+
 void RequestDeviceList(void)
 {
    openD_hanfunApi_devMgmtReq_t hMgmtRequest;
@@ -254,7 +235,7 @@ openD_status_t RegistrationMode(bool enable, uint16_t address)
 {
    openD_hanfunApi_devMgmtReq_t hMgmtRequest;
 
-   if (enable)
+   if(enable)
    {
       // Enable registration
       hMgmtRequest.service = OPEND_HANFUNAPI_DEVICE_MANAGEMENT_REGISTER_ENABLE;
@@ -319,7 +300,7 @@ int main(int argc, char* argv[])
    openD_Api.openD_hanfunApi_bindCfm = bindMgmtConfirmCallback;
 
    // Initialize the openD HANFUN API primitives
-   if (openD_hanfunApi_init(&openD_Api) != OPEND_STATUS_OK)
+   if(openD_hanfunApi_init(&openD_Api) != OPEND_STATUS_OK)
    {
       printf("Initialization of primitives: FAILED\n");
    }

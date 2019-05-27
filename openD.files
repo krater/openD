@@ -47,6 +47,9 @@ src/exampleApps/fp_hanfun_server_rpi/fp_hanfun_app.h
 src/exampleApps/fp_hanfun_server_rpi/main.cpp
 src/exampleApps/fp_hanfun_server_rpi/udp_server.c
 src/exampleApps/fp_hanfun_server_rpi/udp_server.h
+src/exampleApps/fp_hanfun_socket_rpi/CMakeLists.txt
+src/exampleApps/fp_hanfun_socket_rpi/devicelist.cpp
+src/exampleApps/fp_hanfun_socket_rpi/fp_hanfun_socket.cpp
 src/exampleApps/fp_legacy_client_rpi/CMakeLists.txt
 src/exampleApps/fp_legacy_client_rpi/fp_legacy_app.cpp
 src/exampleApps/fp_legacy_client_rpi/fp_legacy_app.h

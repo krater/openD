@@ -226,3 +226,4 @@ unit-test/test_module/modules/dialog_pp
 unit-test/test_module/modules/dspg_fp
 unit-test/test_module/modules/dspg_pp
 src/exampleApps/fp_hanfun_alarm_rpi
+src/exampleApps/fp_hanfun_socket_rpi
