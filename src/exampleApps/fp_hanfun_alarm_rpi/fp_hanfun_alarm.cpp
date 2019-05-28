@@ -1,6 +1,6 @@
 /**
  * @code
- * openD Example Application - Remote controlled power socket
+ * openD Example Application - Alarm Sirene application 
  * @endcode
  *
  * @file       fp_hanfun_alarm.cpp
@@ -162,7 +162,6 @@ void profileConfirmCallback(openD_hanfunApi_profileCfm_t* hProfileConfirm)
          switch(hProfileConfirm->simpleOnOffSwitch.service)
          {
             case OPEND_HANFUN_IONOFF_CLIENT_TOGGLE:
-               printf("Socket switch has received the toggle command\n");
                break;
          }
          break;
