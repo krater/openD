@@ -18,18 +18,27 @@
  */
 
 #include <stdint.h>
+#include <unistd.h>
 
 #include "application.h"
 #include "opend_hanfun_api_fp.h"
 #include "hf_transport.h"
 
+
 extern "C" {
 #include "opend_api.h"
 }
 
-
 void HF::Application::Save();
 void HF::Application::Restore();
+
+bool g_FoundNewDevice = false;
+bool g_RegTimeout = false;
+
+uint16_t g_DevicesCnt = 0xffff;
+
+
+openD_status_t SendSimpleSwitchToggle(uint16_t address);
 
 void devMgmtConfirmCallback(openD_hanfunApi_devMgmtCfm_t* hDevMgmtConfirm)
 {
@@ -43,6 +52,8 @@ void devMgmtConfirmCallback(openD_hanfunApi_devMgmtCfm_t* hDevMgmtConfirm)
    switch(hDevMgmtConfirm->service)
    {
       case OPEND_HANFUNAPI_DEVICE_MANAGEMENT_ENTRIES_REGISTRATION:
+         g_DevicesCnt = hDevMgmtConfirm->param.entriesRegistration.size;
+
          printf("Currently registered HAN-FUN Devices: %u\n", hDevMgmtConfirm->param.entriesRegistration.size);
 
          for(int i = 0; i < hDevMgmtConfirm->param.entriesRegistration.size;i++)
@@ -56,6 +67,8 @@ void devMgmtConfirmCallback(openD_hanfunApi_devMgmtCfm_t* hDevMgmtConfirm)
          break;
 
       case OPEND_HANFUNAPI_DEVICE_MANAGEMENT_ENTRIES_LINK:
+         g_DevicesCnt = hDevMgmtConfirm->param.entriesRegistration.size;
+
          for(int i = 0; i < (int)hDevMgmtConfirm->param.entriesRegistration.size; i++)
          {
             hanfunApiDevMgmt_registrationElement_t RegEl = hDevMgmtConfirm->param.entriesRegistration.registrationElement[i];
@@ -63,10 +76,6 @@ void devMgmtConfirmCallback(openD_hanfunApi_devMgmtCfm_t* hDevMgmtConfirm)
             printf("%.5u | dect uid: %.2x%.2x%.2x%.2x%.2x\n",
                    RegEl.address, RegEl.uid[0], RegEl.uid[1], RegEl.uid[2], RegEl.uid[3], RegEl.uid[4]);
          }
-         break;
-
-      case OPEND_HANFUNAPI_DEVICE_MANAGEMENT_CHANGE_CONCENTRATOR_DECT_MODE:
-         printf("Successful change of Dect mode.\nResetting the Dect Module\n");
          break;
    }
 }
@@ -82,10 +91,12 @@ void devMgmtIndicationCallback(openD_hanfunApi_devMgmtInd_t* hDevMgmtIndication)
    {
       case OPEND_HANFUNAPI_DEVICE_MANAGEMENT_REGISTER_DISABLE:
          printf("Registration mode disabled\n");
+         g_RegTimeout=true;
          break;
 
       case OPEND_HANFUNAPI_DEVICE_MANAGEMENT_REGISTER_DEVICE:
          printf("Registered device with ID: %u\n", hDevMgmtIndication->param.getAddress.address);
+         g_FoundNewDevice=true;
          break;
 
       case OPEND_HANFUNAPI_DEVICE_MANAGEMENT_GET_DEVICE_CORE_INFORMATION:
@@ -114,13 +125,10 @@ void profileIndCallback(openD_hanfunApi_profileInd_t* hProfileInd)
          switch(hProfileInd->simpleLight.service)
          {
             case OPEND_HANFUN_IONOFF_SERVER_TOGGLE_ADDR:
-               printf("Toggle indication from PP with address %u received.\n", hProfileInd->simpleLight.param.toggleAddr.addr.device);
-               break;
-            case OPEND_HANFUN_IONOFF_SERVER_ON_ADDR:
-               printf("On indication from PP with address %u received.\n", hProfileInd->simpleLight.param.toggleAddr.addr.device);
-               break;
-            case OPEND_HANFUN_IONOFF_SERVER_OFF_ADDR:
-               printf("Off indication from PP with address %u received.\n", hProfileInd->simpleLight.param.toggleAddr.addr.device);
+               printf("Toggle indication from Nucleo PP with address %u received.\n", hProfileInd->simpleLight.param.toggleAddr.addr.device);
+
+               printf("Sending toggle to socket switch with address 1\n");
+               SendSimpleSwitchToggle(1);
                break;
          }
          break;
@@ -140,7 +148,7 @@ void profileConfirmCallback(openD_hanfunApi_profileCfm_t* hProfileConfirm)
          switch(hProfileConfirm->simpleOnOffSwitch.service)
          {
             case OPEND_HANFUN_IONOFF_CLIENT_TOGGLE:
-               // CONFIRMATION IMPLEMENT HERE
+               printf("Socket switch has received the toggle command\n");
                break;
          }
          break;
@@ -157,69 +165,10 @@ void bindMgmtConfirmCallback(openD_hanfunApi_bindMgmtCfm_t* hBindMgmtConfirm)
    switch(hBindMgmtConfirm->service)
    {
       case OPEND_HANFUNAPI_BIND_MANAGEMENT_ENTRIES:
-         printf("HAN-FUN current Binds (%u)\n", hBindMgmtConfirm->param.entriesElement.entriesSize);
-
-         printf("\t Source               | Destination          | Interface  \n");
-         printf("\t----------------------|----------------------|--------------------\n");
-
-
-         for(int i = 0; i < hBindMgmtConfirm->param.entriesElement.entriesSize; i++)
-         {
-            networkAddress_t src = hBindMgmtConfirm->param.entriesElement.src[i];
-            networkAddress_t dst = hBindMgmtConfirm->param.entriesElement.dst[i];
-            interfaceUid_t   itf = hBindMgmtConfirm->param.entriesElement.itf[i];
-
-            printf("\t M: %.4x D: %.4x U:%.2x |" , src.mod, src.device, src.unit);
-            printf("\t M: %.4x D: %.4x U:%.2x |" , dst.mod, dst.device, dst.unit);
-            printf("Role: %.4x UID: %.4x\n", itf.role, itf.id);
-         }
-         break;
-
-      case OPEND_HANFUNAPI_BIND_MANAGEMENT_ADD:
-         switch(hBindMgmtConfirm->param.entriesElement.error)
-         {
-            case 0:
-               printf("Bind created\n");
-               break;
-
-            case 1:
-               printf("Bind already exist !\n");
-               break;
-
-            case 2:
-            case 3:
-            {
-               printf("Bind not possible: ");
-               if ((hBindMgmtConfirm->param.entriesElement.error & 0x01) != 0)
-               {
-                  printf("Second device does not exist !\n");
-               }
-               else
-               {
-                  printf("Fist device does not exist !\n");
-               }
-               break;
-            }
-            default:
-               printf("No match for bind !\n");
-               break;
-            }
-            break;
-
-      case OPEND_HANFUNAPI_BIND_MANAGEMENT_REMOVE:
-         if(hBindMgmtConfirm->param.entriesElement.error == 1)
-         {
-            printf("Bind: %u - %u removed !",
-                   hBindMgmtConfirm->param.entriesElement.devicesToBind.address1,
-                   hBindMgmtConfirm->param.entriesElement.devicesToBind.address2);
-         }
-         else
-         {
-            printf("Bind: does not exist !\n");
-         }
          break;
    }
 }
+
 
 // Commands to control openD
 
@@ -284,6 +233,67 @@ openD_status_t SendSimpleSwitchToggle(uint16_t address)
    return openD_hanfunApi_fp_profileRequest(&hProfileRequest, address, 1);
 }
 
+
+bool RegisterDevice(uint16_t address)
+{
+   int i=3;
+   while(i)
+   {
+      if(RegistrationMode(true, address) != OPEND_STATUS_OK)
+      {
+         printf("Can't start registration mode\n");
+         return false;
+      }
+
+      g_FoundNewDevice = false;
+      g_RegTimeout = false;
+      while(1)
+      {
+         if(g_FoundNewDevice || g_RegTimeout)
+            break;
+
+         sleep(1);
+      }
+
+      if(g_FoundNewDevice)
+      {
+         printf("Registration successful\n");
+         return true;
+      }
+      else
+      {
+         if(i>0)
+         {
+            printf("Registration timeout, try again (%u)\n", i--);
+            continue;
+         }
+         else
+         {
+            printf("Registration failed\n");
+            return false;
+         }
+      }
+   }
+}
+
+uint16_t GetDeviceCount(void)
+{
+   g_DevicesCnt = 0xffff;
+   RequestDeviceList();
+
+   int cnt=10;
+   while(cnt--)
+   {
+      if(g_DevicesCnt != 0xffff)
+      {
+         return g_DevicesCnt;
+      }
+
+      sleep(1);
+   }
+}
+
+
 int main(int argc, char* argv[])
 {
    // HAN-FUN Transport Layer over ULE Stack
@@ -321,9 +331,36 @@ int main(int argc, char* argv[])
 
    // ****** Insert your application code here ******
 
+   if(GetDeviceCount()<2)
+   {
+      //Deregister address 1 and 2 because here we need to register out devices
+      Deregister(1);
+      Deregister(2);
 
+      printf("Please bring your power socket in registration mode\n");
+      if(!RegisterDevice(1))
+      {
+         printf("Error, can't register power socket\n");
+         exit(-1);
+      }
 
+      printf("Please bring your Nucleo PP switch in registration mode\n");
+      if(!RegisterDevice(2))
+      {
+         printf("Error, can't register Nucleo PP\n");
+         exit(-2);
+      }
+   }
+
+   printf("Remote controller is working now. Waiting for your inputs\n");
+   while(1)
+   {
+      sleep(100);
+   }
    // ****** End of application code ******
 
    transport->destroy();
 }
+
+
+
