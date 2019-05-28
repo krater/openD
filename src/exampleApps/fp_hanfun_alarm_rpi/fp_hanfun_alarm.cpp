@@ -134,13 +134,13 @@ void profileIndCallback(openD_hanfunApi_profileInd_t* hProfileInd)
                printf("Toggle indication from Nucleo PP with address %u received.\n", hProfileInd->simpleLight.param.toggleAddr.addr.device);
 
                printf("\n\nReceived ALARM signal at %s", ctime(&t));
-	       printf("\nActivating Sirene!\n");
-	       SendSimpleSwitchOn(1);
+               printf("\nActivating Sirene!\n");
+               SendSimpleSwitchOn(1);
 	     
                while ((c = getchar()) != '\n' && c != EOF);
                printf("\nEnter 'x' | 'X' to cut the noise!\n");
 
- 	       while ((c = getchar()) != 'x' && c != 'X');
+               while ((c = getchar()) != 'x' && c != 'X');
 
                SendSimpleSwitchOff(1);
                break;
